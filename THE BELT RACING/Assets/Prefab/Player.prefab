@@ -364,12 +364,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   baseSpeed: 60
-  brakeSpeed: 20
-  brakeDeceleration: 45
-  turnRate: 120
-  steerResponsiveness: 12
-  boostSpeed: 2
-  energy: 0
+  boostSpeed: 120
+  maxBoostEnergy: 100
+  boostConsumptionRate: 25
+  boostRegenRate: 2.5
+  currentBoostEnergy: 100
   isBoosting: 0
   accelerationInput: 0
   brakeInput: 0
