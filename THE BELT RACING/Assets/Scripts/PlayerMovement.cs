@@ -7,12 +7,11 @@ using UnityEngine.InputSystem;
 public class PlayerMovement : MonoBehaviour
 {
     [SerializeField] float baseSpeed = 60f;
-    [SerializeField] float brakeSpeed = 20f;
-    [SerializeField] float brakeDeceleration = 45f;
-    [SerializeField] float turnRate = 120f;
-    [SerializeField] float steerResponsiveness = 12f;
     [SerializeField] float boostSpeed = 2f;
-    [SerializeField] float energy;
+    [SerializeField] float maxBoostEnergy = 100f;
+    [SerializeField] float boostConsumptionRate =1f;
+    [SerializeField] float boostRegenRate = 1f;
+    [SerializeField] float currentBoostEnergy;
 
     [Header("Serialized for debugging")]
     [SerializeField] bool isBoosting;
@@ -35,6 +34,28 @@ public class PlayerMovement : MonoBehaviour
         ApplyMovement();
         ApplySteering();
         ApplyRoll();
+        BoostLogic();
+    }
+
+    private void BoostLogic()
+    {
+        if (isBoosting)
+        {
+            currentBoostEnergy -= boostConsumptionRate * Time.fixedDeltaTime;
+
+            Vector3 deltaVector = transform.forward * boostSpeed;
+            rigidbody.AddForce(deltaVector);
+
+            if (currentBoostEnergy <= 0f)
+            {
+                isBoosting = false;
+            }
+        }
+        else
+        {
+            currentBoostEnergy += boostRegenRate * Time.fixedDeltaTime;
+            currentBoostEnergy = Mathf.Clamp(currentBoostEnergy,0f,maxBoostEnergy);
+        }
     }
 
     private void ApplyRoll()
