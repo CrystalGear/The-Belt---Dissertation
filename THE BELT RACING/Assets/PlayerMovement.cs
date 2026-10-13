@@ -19,6 +19,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] float accelerationInput;
     [SerializeField] float brakeInput;
     [SerializeField] Vector2 steeringInput;
+    [SerializeField] float rollLeftInput;
+    [SerializeField] float rollRightInput;
 
     Rigidbody rigidbody;
 
@@ -32,23 +34,26 @@ public class PlayerMovement : MonoBehaviour
     {
         ApplyMovement();
         ApplySteering();
+        ApplyRoll();
+    }
+
+    private void ApplyRoll()
+    {
+        Vector3 deltaRoll = new();
+        deltaRoll.z = rollLeftInput - rollRightInput;
+        rigidbody.AddRelativeTorque(deltaRoll);
     }
 
     private void ApplySteering()
     {
         Vector3 deltaTorque = new();
-        deltaTorque.x = steeringInput.y;
+        deltaTorque.x = -steeringInput.y;
         deltaTorque.y = steeringInput.x;
-        //deltaTorque.z = steeringInput.x * 0.25f;
-
         rigidbody.AddRelativeTorque(deltaTorque);
     }
 
     private void ApplyMovement()
     {
-        // brake input needs to be nagtive not positive
-        //if both are applied they cancel each out
-        //acceleration is the poisive input
         float deltaForce = accelerationInput -brakeInput;
         deltaForce = deltaForce * baseSpeed;
 
@@ -74,6 +79,16 @@ public class PlayerMovement : MonoBehaviour
     public void OnSteering(InputValue iv)
     {
         steeringInput = iv.Get<Vector2>();
+    }
+
+    public void OnRollRight(InputValue iv) 
+    {
+        rollRightInput = iv.Get<float>();
+    }
+
+    public void OnRollLeft(InputValue iv)
+    {
+        rollLeftInput = iv.Get<float>();
     }
     #endregion
 }
