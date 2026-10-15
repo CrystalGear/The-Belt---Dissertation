@@ -6,12 +6,15 @@ using UnityEngine.InputSystem;
 
 public class PlayerMovement : MonoBehaviour
 {
+    public event Action<int> OnSpeedChanged;
+    public event Action<float> OnEnergyChanged;
+
     [SerializeField] float baseSpeed = 60f;
     [SerializeField] float boostSpeed = 2f;
     [SerializeField] float maxBoostEnergy = 100f;
     [SerializeField] float boostConsumptionRate =1f;
     [SerializeField] float boostRegenRate = 1f;
-    [SerializeField] float currentBoostEnergy;
+
 
     [Header("Serialized for debugging")]
     [SerializeField] bool isBoosting;
@@ -20,8 +23,10 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] Vector2 steeringInput;
     [SerializeField] float rollLeftInput;
     [SerializeField] float rollRightInput;
+    [SerializeField] float currentBoostEnergy = 100f;
 
     Rigidbody rigidbody;
+    private float EnergyNormalised => currentBoostEnergy/maxBoostEnergy;
 
     //apply force to the rigidbody using coast speed
     private void Start()
@@ -35,13 +40,14 @@ public class PlayerMovement : MonoBehaviour
         ApplySteering();
         ApplyRoll();
         BoostLogic();
+        ReportSpeed();
     }
-
     private void BoostLogic()
     {
         if (isBoosting)
         {
             currentBoostEnergy -= boostConsumptionRate * Time.fixedDeltaTime;
+            
 
             Vector3 deltaVector = transform.forward * boostSpeed;
             rigidbody.AddForce(deltaVector);
@@ -56,6 +62,7 @@ public class PlayerMovement : MonoBehaviour
             currentBoostEnergy += boostRegenRate * Time.fixedDeltaTime;
             currentBoostEnergy = Mathf.Clamp(currentBoostEnergy,0f,maxBoostEnergy);
         }
+        OnEnergyChanged?.Invoke(EnergyNormalised);
     }
 
     private void ApplyRoll()
@@ -83,6 +90,11 @@ public class PlayerMovement : MonoBehaviour
         rigidbody.AddForce(deltaVector);
 
 
+    }
+    private void ReportSpeed()
+    {
+        Vector3 velocity = rigidbody.linearVelocity;
+        OnSpeedChanged?.Invoke((int)velocity.magnitude);
     }
     #region Inputs
     public void OnAcceleration(InputValue iv)
