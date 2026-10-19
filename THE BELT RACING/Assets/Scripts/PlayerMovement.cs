@@ -34,6 +34,11 @@ public class PlayerMovement : MonoBehaviour
         rigidbody = GetComponent<Rigidbody>();
         //rigidbody.maxLinearVelocity = 344;      // Set max linear velocity tomach 1
     }
+    public Vector2 GetSteeringInput()
+    {
+        return steeringInput;
+    }
+
     private void FixedUpdate()
     {
         ApplyMovement();

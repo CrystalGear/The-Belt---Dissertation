@@ -300,6 +300,7 @@ GameObject:
   - component: {fileID: 563379869403229464}
   - component: {fileID: 2868367177473144907}
   - component: {fileID: 2436266598157068508}
+  - component: {fileID: 6020142724358188545}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -368,13 +369,13 @@ MonoBehaviour:
   maxBoostEnergy: 100
   boostConsumptionRate: 25
   boostRegenRate: 2.5
-  currentBoostEnergy: 100
   isBoosting: 0
   accelerationInput: 0
   brakeInput: 0
   steeringInput: {x: 0, y: 0}
   rollLeftInput: 0
   rollRightInput: 0
+  currentBoostEnergy: 100
 --- !u!114 &2436266598157068508
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -405,6 +406,21 @@ MonoBehaviour:
   m_DefaultActionMap: Player
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
+--- !u!114 &6020142724358188545
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3840212908117459936}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae6d0db23cb2aed4d90c65fa807a17ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipVisualTilt
+  shipBody: {fileID: 7337971608182483426}
+  tiltAngle: 5
+  tiltSpeed: 0.5
 --- !u!1 &4053187911150229603
 GameObject:
   m_ObjectHideFlags: 0
