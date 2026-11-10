@@ -91,7 +91,7 @@ Material:
     - _Normal_Intensity: 1
     - _Panel_Colour_Intensity: 0.5
     - _Parallax_Occlusion_Amplitude: 0
-    - _Parallax_Occlusion_Layers: 10
+    - _Parallax_Occlusion_Layers: 0
     - _QueueControl: 0
     - _QueueOffset: 0
     - _Small_Colour_Pipe_Intensity: 0.5
