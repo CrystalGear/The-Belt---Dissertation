@@ -1,42 +1,48 @@
 
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class PlayerWeaponSystem : MonoBehaviour
 {
-    [Header("Weapon Settings")]
-    [SerializeField] GameObject bulletPrefab;
-    [SerializeField] Transform[] firingPositions;
+    [Serializable]
+    public class Weapon
+    {
+        [Header("Weapon Settings")]
+        public string weaponName;
+        public GameObject bulletPrefab;
 
-    [Tooltip("True = all firing positions fire together. False = fire sequentially.")]
-    [SerializeField] bool fireAllPositions = true;
+        [Tooltip("All firing positions belonging to this weapon.")]
+        public Transform[] firingPositions;
 
-    [SerializeField] float bulletSpeed = 50f;
-    [SerializeField] float fireRate = 0.25f;
+        [Tooltip("True = all positions fire together. False = fire sequentially.")]
+        public bool fireAllPositions = true;
 
-    [Header("Velocity Inheritance")]
-    [SerializeField] bool inheritPlayerVelocity = true;
+        public float bulletSpeed = 50f;
+        public float fireRate = 0.25f;
 
-    [Header("Input")]
-    [SerializeField] bool automaticFire = true;
+        [Header("Debugging")]
+        [HideInInspector] public int currentFiringPosition;
+
+        [NonSerialized] public float nextFireTime;
+    }
+
+    [Header("Weapons")]
+    [SerializeField] Weapon[] weapons;
 
     [Header("Debugging")]
     [SerializeField] bool isFiring;
 
     Rigidbody playerRigidbody;
 
-    float nextFireTime;
-    int currentFiringPosition;
-
-    void Start()
+    private void Start()
     {
-        // Get the Rigidbody from the player.
-        playerRigidbody = GetComponentInParent<Rigidbody>();
+        playerRigidbody = GetComponent<Rigidbody>();
     }
 
-    void Update()
+    private void Update()
     {
-        if (automaticFire && isFiring)
+        if (isFiring)
         {
             TryFire();
         }
@@ -44,65 +50,82 @@ public class PlayerWeaponSystem : MonoBehaviour
 
     public void TryFire()
     {
-        if (Time.time < nextFireTime)
+        if (!isFiring)
             return;
 
-        if (bulletPrefab == null || firingPositions.Length == 0)
+        // Check every weapon independently.
+        foreach (Weapon weapon in weapons)
+        {
+            TryFireWeapon(weapon);
+        }
+    }
+
+    private void TryFireWeapon(Weapon weapon)
+    {
+        if (weapon == null)
             return;
 
-        nextFireTime = Time.time + fireRate;
+        if (Time.time < weapon.nextFireTime)
+            return;
 
-        if (fireAllPositions)
+        if (weapon.bulletPrefab == null || weapon.firingPositions == null || weapon.firingPositions.Length == 0)
+            return;
+
+        // Set this weapon's next firing time.
+        weapon.nextFireTime = Time.time + Mathf.Max(weapon.fireRate, 0.01f);
+
+        if (weapon.fireAllPositions)
         {
             // Fire from every position simultaneously.
-            foreach (Transform firingPosition in firingPositions)
+            foreach (Transform firingPosition in weapon.firingPositions)
             {
-                FireBullet(firingPosition);
+                FireBullet(weapon, firingPosition);
             }
         }
         else
         {
             // Fire from the current position.
-            FireBullet(firingPositions[currentFiringPosition]);
+            FireBullet(weapon, weapon.firingPositions[weapon.currentFiringPosition]);
 
             // Move to the next firing position.
-            currentFiringPosition++;
+            weapon.currentFiringPosition++;
 
-            if (currentFiringPosition >= firingPositions.Length)
-                currentFiringPosition = 0;
+            if (weapon.currentFiringPosition >= weapon.firingPositions.Length)
+                weapon.currentFiringPosition = 0;
         }
     }
 
-    void FireBullet(Transform firingPosition)
+    private void FireBullet(Weapon weapon, Transform firingPosition)
     {
         if (firingPosition == null)
             return;
 
-        // Instantiate the bullet facing the firing position's forward direction.
+        // Instantiate bullet at the firing position.
         GameObject bullet = Instantiate(
-            bulletPrefab,
+            weapon.bulletPrefab,
             firingPosition.position,
             firingPosition.rotation
         );
 
-        // Apply forward velocity using physics.
+        // Apply bullet velocity, including player momentum.
         Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
 
         if (bulletRb != null)
         {
-            Vector3 bulletVelocity = firingPosition.forward * bulletSpeed;
+            Vector3 playerVelocity = playerRigidbody != null
+                ? playerRigidbody.linearVelocity
+                : Vector3.zero;
 
-            // Inherit the player's current velocity.
-            if (inheritPlayerVelocity && playerRigidbody != null)
-            {
-                bulletVelocity += playerRigidbody.linearVelocity;
-            }
+            Vector3 firingVelocity = firingPosition.forward * weapon.bulletSpeed;
 
-            bulletRb.linearVelocity = bulletVelocity;
+            bulletRb.linearVelocity = playerVelocity + firingVelocity;
         }
         else
         {
-            Debug.LogWarning("Bullet prefab is missing a Rigidbody!", bullet);
+            Debug.LogWarning(
+                "Bullet prefab is missing a Rigidbody!",
+                bullet
+            );
         }
     }
 
@@ -111,6 +134,12 @@ public class PlayerWeaponSystem : MonoBehaviour
     public void OnFire(InputValue iv)
     {
         isFiring = iv.isPressed;
+
+        // Fire immediately when the button is first pressed.
+        if (isFiring)
+        {
+            TryFire();
+        }
     }
 
     #endregion
