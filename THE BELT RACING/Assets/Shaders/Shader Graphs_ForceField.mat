@@ -67,6 +67,6 @@ Material:
     - _ScrollSpeed: 0.05
     m_Colors:
     - _Color: {r: 13.76636, g: 4.2725234, b: 0, a: 1}
-    - _Pattern_Size: {r: 5, g: 100, b: 0, a: 0}
+    - _Pattern_Size: {r: 5, g: 10, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
