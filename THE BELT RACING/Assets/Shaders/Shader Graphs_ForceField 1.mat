@@ -59,14 +59,14 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Fill: 0
-    - _Fresnel: 5.85
-    - _Offset: 1.37
+    - _Fill: 0.01
+    - _Fresnel: 12
+    - _Offset: 0
     - _QueueControl: 0
     - _QueueOffset: 0
-    - _ScrollSpeed: 0.05
+    - _ScrollSpeed: 100
     m_Colors:
-    - _Color: {r: 4.5947933, g: 0.9544045, b: 0, a: 1}
-    - _Pattern_Size: {r: 1, g: 5, b: 0, a: 0}
+    - _Color: {r: 0.7531706, g: 0, b: 0, a: 0}
+    - _Pattern_Size: {r: 100, g: 100, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

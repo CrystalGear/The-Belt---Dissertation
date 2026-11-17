@@ -8,58 +8,134 @@ public class PlayerMovement : MonoBehaviour
 {
     public event Action<int> OnSpeedChanged;
     public event Action<float> OnEnergyChanged;
+    public event Action OnBoostReady;
 
     [Header("Movement")]
-    [SerializeField] float baseSpeed = 60f;
+    [SerializeField] private float baseSpeed = 60f;
 
     [Header("Boost")]
-    [SerializeField] float boostSpeed = 2f;
-    [SerializeField] float maxBoostEnergy = 100f;
-    [SerializeField] float boostConsumptionRate = 1f;
-    [SerializeField] float boostRegenRate = 1f;
+    [SerializeField] private float boostSpeed = 2f;
+    [SerializeField] private float maxBoostEnergy = 100f;
+    [SerializeField] private float boostConsumptionRate = 1f;
+    [SerializeField] private float boostRegenRate = 1f;
+
+    [Tooltip("Time to wait after boost depletion before regeneration starts.")]
+    [SerializeField] private float boostRechargeDelay = 2f;
+
+    [Header("Boost Audio")]
+    [Tooltip("Audio played once when boost energy is depleted and engines overheat.")]
+    [SerializeField] private AudioSource boostOverheatAudioSource;
+
+    [Header("Boost Overheat Penalty")]
+    [Tooltip("Percentage of forward speed lost when boost overheats. 0.35 = 35% loss.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float overheatSpeedLoss = 0.35f;
+
+    [Tooltip("Minimum forward speed the ship retains after overheating.")]
+    [SerializeField] private float minimumSpeedAfterOverheat = 15f;
+
+    [Header("Reticle Steering")]
+    [SerializeField] private RectTransform flightReticle;
+    [SerializeField] private Camera flightCamera;
+
+    [SerializeField, Range(0.1f, 0.5f)]
+    private float reticleMovementRadius = 0.35f;
+
+    [SerializeField, Range(5f, 80f)]
+    private float maxSteeringAngle = 35f;
 
     [Header("Flight Control Sensitivity")]
-    [Tooltip("Sensitivity multiplier for pitching up and down.")]
     [SerializeField, Range(0f, 3f)]
-    float pitchSensitivity = 1f;
+    private float pitchSensitivity = 1f;
 
-    [Tooltip("Sensitivity multiplier for turning left and right.")]
     [SerializeField, Range(0f, 3f)]
-    float yawSensitivity = 1f;
+    private float yawSensitivity = 1f;
 
-    [Tooltip("Sensitivity multiplier for rolling left and right.")]
     [SerializeField, Range(0f, 3f)]
-    float rollSensitivity = 1f;
+    private float rollSensitivity = 1f;
 
-    [Header("Flight Control Strength")]
-    [Tooltip("Maximum torque applied when pitching.")]
-    [SerializeField] float pitchStrength = 1f;
+    [Header("Maximum Rotation Speeds")]
+    [Tooltip("Maximum pitch rotation speed in degrees per second.")]
+    [SerializeField] private float maxPitchRate = 90f;
 
-    [Tooltip("Maximum torque applied when yawing.")]
-    [SerializeField] float yawStrength = 1f;
+    [Tooltip("Maximum yaw rotation speed in degrees per second.")]
+    [SerializeField] private float maxYawRate = 120f;
 
-    [Tooltip("Maximum torque applied when rolling.")]
-    [SerializeField] float rollStrength = 1f;
+    [Tooltip("Maximum manual roll speed in degrees per second.")]
+    [SerializeField] private float maxRollRate = 120f;
 
-    [Header("Serialized for debugging")]
-    [SerializeField] bool isBoosting;
-    [SerializeField] float accelerationInput;
-    [SerializeField] float brakeInput;
-    [SerializeField] Vector2 steeringInput;
-    [SerializeField] float rollLeftInput;
-    [SerializeField] float rollRightInput;
-    [SerializeField] float currentBoostEnergy = 100f;
+    [Header("Flight Stability")]
+    [Tooltip("How quickly the ship reaches its requested rotation speed.")]
+    [SerializeField] private float rotationResponse = 8f;
 
-    Rigidbody rigidbody;
+    [Tooltip("Maximum angular acceleration in degrees per second squared.")]
+    [SerializeField] private float maxAngularAcceleration = 360f;
 
-    private float EnergyNormalised =>
-        maxBoostEnergy > 0f
-        ? currentBoostEnergy / maxBoostEnergy
-        : 0f;
+    [Header("Rotational Damping")]
+    [Tooltip("How quickly unwanted rotation is removed when there is no input.")]
+    [SerializeField] private float rotationalDamping = 4f;
+
+    [Tooltip("Rotation speed below which tiny residual rotation is removed.")]
+    [SerializeField] private float rotationDeadzone = 0.05f;
+
+    [Header("Automatic Banking")]
+    [SerializeField] private bool autoBanking = true;
+
+    [Tooltip("Maximum angle the ship will bank into a turn.")]
+    [SerializeField, Range(0f, 80f)]
+    private float maxBankAngle = 30f;
+
+    [Tooltip("How quickly the ship attempts to reach its target bank angle.")]
+    [SerializeField] private float autoBankStrength = 3f;
+
+    [Tooltip("Maximum automatic banking rotation speed.")]
+    [SerializeField] private float maxAutoBankRate = 90f;
+
+    [Header("Serialized for Debugging")]
+    [SerializeField] private bool isBoosting;
+    [SerializeField] private bool enginesOverheated;
+    [SerializeField] private float boostRechargeTimer;
+    [SerializeField] private float accelerationInput;
+    [SerializeField] private float brakeInput;
+    [SerializeField] private Vector2 steeringInput;
+    [SerializeField] private float rollLeftInput;
+    [SerializeField] private float rollRightInput;
+    [SerializeField] private float currentBoostEnergy = 100f;
+    [SerializeField] private float currentBankAngle;
+
+    private Rigidbody rb;
+
+    // UI accessors.
+    public float CurrentBoostEnergy => currentBoostEnergy;
+    public float MaxBoostEnergy => maxBoostEnergy;
+    public bool EnginesOverheated => enginesOverheated;
+
+    public bool CanUseBoost =>
+        !enginesOverheated && currentBoostEnergy > 0f;
+
+    public bool IsBoostRecharging =>
+        currentBoostEnergy < maxBoostEnergy;
+
+    private void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+
+        if (flightCamera == null)
+            flightCamera = Camera.main;
+
+        maxBoostEnergy = Mathf.Max(0f, maxBoostEnergy);
+
+        currentBoostEnergy = Mathf.Clamp(
+            currentBoostEnergy,
+            0f,
+            maxBoostEnergy
+        );
+    }
 
     private void Start()
     {
-        rigidbody = GetComponent<Rigidbody>();
+        // Send initial energy value to the UI.
+        OnEnergyChanged?.Invoke(currentBoostEnergy);
     }
 
     public Vector2 GetSteeringInput()
@@ -69,72 +145,203 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
+        UpdateReticleSteering();
+
         ApplyMovement();
-        ApplySteering();
-        ApplyRoll();
+        ApplyFlightControl();
+
         BoostLogic();
         ReportSpeed();
     }
 
-    private void BoostLogic()
+    #region Steering
+
+    private void UpdateReticleSteering()
     {
-        if (isBoosting)
-        {
-            currentBoostEnergy -= boostConsumptionRate * Time.fixedDeltaTime;
+        if (flightReticle == null)
+            return;
 
-            Vector3 deltaVector = transform.forward * boostSpeed;
-            rigidbody.AddForce(deltaVector);
+        if (flightCamera == null)
+            flightCamera = Camera.main;
 
-            if (currentBoostEnergy <= 0f)
-            {
-                currentBoostEnergy = 0f;
-                isBoosting = false;
-            }
-        }
-        else
-        {
-            currentBoostEnergy += boostRegenRate * Time.fixedDeltaTime;
+        if (flightCamera == null)
+            return;
 
-            currentBoostEnergy = Mathf.Clamp(
-                currentBoostEnergy,
-                0f,
-                maxBoostEnergy
+        Canvas parentCanvas =
+            flightReticle.GetComponentInParent<Canvas>();
+
+        float canvasScale = parentCanvas != null
+            ? parentCanvas.scaleFactor
+            : 1f;
+
+        float maxRadius =
+            Screen.height * reticleMovementRadius / canvasScale;
+
+        if (maxRadius <= 0f)
+            return;
+
+        Vector2 reticleOffset = flightReticle.anchoredPosition;
+
+        Vector2 normalisedOffset = reticleOffset / maxRadius;
+
+        normalisedOffset = Vector2.ClampMagnitude(
+            normalisedOffset,
+            1f
+        );
+
+        float angle = maxSteeringAngle * Mathf.Deg2Rad;
+        float angleScale = Mathf.Tan(angle);
+
+        Vector3 desiredDirection =
+            transform.forward
+            + flightCamera.transform.right *
+                (normalisedOffset.x * angleScale)
+            + flightCamera.transform.up *
+                (normalisedOffset.y * angleScale);
+
+        Vector3 localDirection =
+            transform.InverseTransformDirection(
+                desiredDirection.normalized
             );
-        }
 
-        OnEnergyChanged?.Invoke(EnergyNormalised);
+        float forwardAmount = Mathf.Max(
+            0.1f,
+            localDirection.z
+        );
+
+        steeringInput.x = Mathf.Clamp(
+            localDirection.x / forwardAmount / angleScale,
+            -1f,
+            1f
+        );
+
+        steeringInput.y = Mathf.Clamp(
+            localDirection.y / forwardAmount / angleScale,
+            -1f,
+            1f
+        );
     }
 
-    private void ApplyRoll()
+    #endregion
+
+    #region Flight Control
+
+    private void ApplyFlightControl()
     {
-        Vector3 deltaRoll = Vector3.zero;
+        Vector3 localAngularVelocity =
+            transform.InverseTransformDirection(
+                rb.angularVelocity
+            );
 
-        deltaRoll.z =
-            (rollLeftInput - rollRightInput)
-            * rollSensitivity
-            * rollStrength;
+        Vector3 targetAngularVelocity = Vector3.zero;
 
-        rigidbody.AddRelativeTorque(deltaRoll);
-    }
-
-    private void ApplySteering()
-    {
-        Vector3 deltaTorque = Vector3.zero;
-
-        // Pitch: Up and down
-        deltaTorque.x =
+        // Pitch.
+        targetAngularVelocity.x =
             -steeringInput.y
             * pitchSensitivity
-            * pitchStrength;
+            * maxPitchRate
+            * Mathf.Deg2Rad;
 
-        // Yaw: Left and right
-        deltaTorque.y =
+        // Yaw.
+        targetAngularVelocity.y =
             steeringInput.x
             * yawSensitivity
-            * yawStrength;
+            * maxYawRate
+            * Mathf.Deg2Rad;
 
-        rigidbody.AddRelativeTorque(deltaTorque);
+        // Roll.
+        float manualRoll = rollLeftInput - rollRightInput;
+
+        if (Mathf.Abs(manualRoll) > 0.01f)
+        {
+            targetAngularVelocity.z =
+                manualRoll
+                * rollSensitivity
+                * maxRollRate
+                * Mathf.Deg2Rad;
+        }
+        else if (autoBanking)
+        {
+            targetAngularVelocity.z = CalculateAutoBankRate();
+        }
+
+        Vector3 angularVelocityError =
+            targetAngularVelocity - localAngularVelocity;
+
+        Vector3 angularAcceleration =
+            angularVelocityError * rotationResponse;
+
+        bool hasRotationInput =
+            Mathf.Abs(steeringInput.x) > 0.01f ||
+            Mathf.Abs(steeringInput.y) > 0.01f ||
+            Mathf.Abs(manualRoll) > 0.01f;
+
+        if (!hasRotationInput)
+        {
+            angularAcceleration -=
+                localAngularVelocity * rotationalDamping;
+
+            if (localAngularVelocity.sqrMagnitude <
+                rotationDeadzone * rotationDeadzone)
+            {
+                angularAcceleration -=
+                    localAngularVelocity * 10f;
+            }
+        }
+
+        float maxAcceleration =
+            maxAngularAcceleration * Mathf.Deg2Rad;
+
+        angularAcceleration = Vector3.ClampMagnitude(
+            angularAcceleration,
+            maxAcceleration
+        );
+
+        rb.AddRelativeTorque(
+            angularAcceleration,
+            ForceMode.Acceleration
+        );
     }
+
+    private float CalculateAutoBankRate()
+    {
+        Vector3 levelUp = Vector3.ProjectOnPlane(
+            Vector3.up,
+            transform.forward
+        );
+
+        if (levelUp.sqrMagnitude < 0.001f)
+            return 0f;
+
+        levelUp.Normalize();
+
+        currentBankAngle = Vector3.SignedAngle(
+            levelUp,
+            transform.up,
+            transform.forward
+        );
+
+        float targetBankAngle =
+            -steeringInput.x * maxBankAngle;
+
+        float bankError = Mathf.DeltaAngle(
+            currentBankAngle,
+            targetBankAngle
+        );
+
+        float targetRollRate =
+            bankError * autoBankStrength;
+
+        return Mathf.Clamp(
+            targetRollRate,
+            -maxAutoBankRate,
+            maxAutoBankRate
+        ) * Mathf.Deg2Rad;
+    }
+
+    #endregion
+
+    #region Movement
 
     private void ApplyMovement()
     {
@@ -143,15 +350,138 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 deltaVector = transform.forward * deltaForce;
 
-        rigidbody.AddForce(deltaVector);
+        rb.AddForce(deltaVector);
     }
+
+    #endregion
+
+    #region Boost
+
+    private void BoostLogic()
+    {
+        // BOOSTING
+        if (isBoosting && CanUseBoost)
+        {
+            currentBoostEnergy -=
+                boostConsumptionRate * Time.fixedDeltaTime;
+
+            Vector3 deltaVector = transform.forward * boostSpeed;
+
+            rb.AddForce(deltaVector);
+
+            // Check if energy has been depleted.
+            if (currentBoostEnergy <= 0f)
+            {
+                currentBoostEnergy = 0f;
+
+                enginesOverheated = true;
+                isBoosting = false;
+
+                boostRechargeTimer = boostRechargeDelay;
+
+                // Apply the sudden forward speed penalty.
+                ApplyOverheatSpeedPenalty();
+
+                // Play the boost overheat sound once.
+                if (boostOverheatAudioSource != null)
+                {
+                    boostOverheatAudioSource.Play();
+                }
+            }
+        }
+        else
+        {
+            // RECHARGING / COOLING DOWN
+            if (currentBoostEnergy < maxBoostEnergy)
+            {
+                if (enginesOverheated && boostRechargeTimer > 0f)
+                {
+                    boostRechargeTimer -= Time.fixedDeltaTime;
+
+                    boostRechargeTimer = Mathf.Max(
+                        boostRechargeTimer,
+                        0f
+                    );
+                }
+                else
+                {
+                    currentBoostEnergy +=
+                        boostRegenRate * Time.fixedDeltaTime;
+
+                    currentBoostEnergy = Mathf.Clamp(
+                        currentBoostEnergy,
+                        0f,
+                        maxBoostEnergy
+                    );
+                }
+            }
+
+            // Engines have fully cooled down and recharged.
+            if (enginesOverheated &&
+                currentBoostEnergy >= maxBoostEnergy)
+            {
+                currentBoostEnergy = maxBoostEnergy;
+
+                enginesOverheated = false;
+
+                OnBoostReady?.Invoke();
+            }
+        }
+
+        OnEnergyChanged?.Invoke(currentBoostEnergy);
+    }
+
+    /// <summary>
+    /// Removes a configurable percentage of the ship's forward velocity
+    /// while preserving its sideways and vertical momentum.
+    /// </summary>
+    private void ApplyOverheatSpeedPenalty()
+    {
+        if (rb == null)
+            return;
+
+        // Get the ship's current velocity along its forward direction.
+        float currentForwardSpeed = Vector3.Dot(
+            rb.linearVelocity,
+            transform.forward
+        );
+
+        // Do not apply the penalty if the ship is stationary or reversing.
+        if (currentForwardSpeed <= 0f)
+            return;
+
+        // Calculate the reduced forward speed.
+        float reducedSpeed =
+            currentForwardSpeed * (1f - overheatSpeedLoss);
+
+        // Enforce the minimum speed without increasing existing speed.
+        reducedSpeed = Mathf.Min(
+            currentForwardSpeed,
+            Mathf.Max(reducedSpeed, minimumSpeedAfterOverheat)
+        );
+
+        // Remove only the lost forward velocity.
+        float speedDifference =
+            currentForwardSpeed - reducedSpeed;
+
+        rb.linearVelocity -=
+            transform.forward * speedDifference;
+    }
+
+    #endregion
+
+    #region UI
 
     private void ReportSpeed()
     {
-        Vector3 velocity = rigidbody.linearVelocity;
+        Vector3 velocity = rb.linearVelocity;
 
-        OnSpeedChanged?.Invoke((int)velocity.magnitude);
+        OnSpeedChanged?.Invoke(
+            (int)velocity.magnitude
+        );
     }
+
+    #endregion
 
     #region Inputs
 
@@ -167,7 +497,15 @@ public class PlayerMovement : MonoBehaviour
 
     public void OnBoost(InputValue iv)
     {
-        isBoosting = iv.isPressed;
+        if (iv.isPressed)
+        {
+            if (CanUseBoost)
+                isBoosting = true;
+        }
+        else
+        {
+            isBoosting = false;
+        }
     }
 
     public void OnSteering(InputValue iv)
