@@ -26,10 +26,18 @@ public class FlightReticleController : MonoBehaviour
 
     void Awake()
     {
+        if (reticle == null)
+            return;
+
         parentCanvas = reticle.GetComponentInParent<Canvas>();
 
         reticlePosition = Vector2.zero;
         reticle.anchoredPosition = reticlePosition;
+    }
+
+    void Start()
+    {
+        LockMouse();
     }
 
     void Update()
@@ -37,11 +45,27 @@ public class FlightReticleController : MonoBehaviour
         if (reticle == null)
             return;
 
+        // Unlock mouse when Escape is pressed.
+        if (Keyboard.current != null &&
+            Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            UnlockMouse();
+        }
+
+        // Relock mouse when the player clicks.
+        if (Mouse.current != null &&
+            Mouse.current.leftButton.wasPressedThisFrame &&
+            Cursor.lockState != CursorLockMode.Locked)
+        {
+            LockMouse();
+        }
+
         Vector2 mouseInput = Vector2.zero;
         Vector2 controllerInput = Vector2.zero;
 
         // Mouse input
-        if (Mouse.current != null)
+        if (Mouse.current != null &&
+            Cursor.lockState == CursorLockMode.Locked)
         {
             mouseInput = Mouse.current.delta.ReadValue();
         }
@@ -99,5 +123,22 @@ public class FlightReticleController : MonoBehaviour
 
         // Apply position
         reticle.anchoredPosition = reticlePosition;
+    }
+
+    void LockMouse()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    void UnlockMouse()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void OnDisable()
+    {
+        UnlockMouse();
     }
 }

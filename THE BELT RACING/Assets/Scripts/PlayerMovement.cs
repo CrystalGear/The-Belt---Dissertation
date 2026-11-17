@@ -18,28 +18,43 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] float boostConsumptionRate = 1f;
     [SerializeField] float boostRegenRate = 1f;
 
+    [Header("Reticle Steering")]
+    [SerializeField] RectTransform flightReticle;
+    [SerializeField] Camera flightCamera;
+
+    [SerializeField, Range(0.1f, 0.5f)]
+    float reticleMovementRadius = 0.35f;
+
+    [SerializeField, Range(5f, 80f)]
+    float maxSteeringAngle = 35f;
+
     [Header("Flight Control Sensitivity")]
-    [Tooltip("Sensitivity multiplier for pitching up and down.")]
     [SerializeField, Range(0f, 3f)]
     float pitchSensitivity = 1f;
 
-    [Tooltip("Sensitivity multiplier for turning left and right.")]
     [SerializeField, Range(0f, 3f)]
     float yawSensitivity = 1f;
 
-    [Tooltip("Sensitivity multiplier for rolling left and right.")]
     [SerializeField, Range(0f, 3f)]
     float rollSensitivity = 1f;
 
     [Header("Flight Control Strength")]
-    [Tooltip("Maximum torque applied when pitching.")]
     [SerializeField] float pitchStrength = 1f;
+    [SerializeField] float yawStrength = 3f;
+    [SerializeField] float rollStrength = 2f;
 
-    [Tooltip("Maximum torque applied when yawing.")]
-    [SerializeField] float yawStrength = 1f;
+    [Header("Automatic Banking")]
+    [SerializeField] bool autoBanking = true;
 
-    [Tooltip("Maximum torque applied when rolling.")]
-    [SerializeField] float rollStrength = 1f;
+    [Tooltip("Maximum angle the ship will bank into a turn.")]
+    [SerializeField, Range(0f, 80f)]
+    float maxBankAngle = 30f;
+
+    [Tooltip("How quickly the ship rolls towards its target bank angle.")]
+    [SerializeField] float autoBankStrength = 2f;
+
+    [Tooltip("How strongly unwanted rolling is damped.")]
+    [SerializeField] float autoBankDamping = 1.5f;
 
     [Header("Serialized for debugging")]
     [SerializeField] bool isBoosting;
@@ -49,6 +64,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] float rollLeftInput;
     [SerializeField] float rollRightInput;
     [SerializeField] float currentBoostEnergy = 100f;
+    [SerializeField] float currentBankAngle;
 
     Rigidbody rigidbody;
 
@@ -60,6 +76,9 @@ public class PlayerMovement : MonoBehaviour
     private void Start()
     {
         rigidbody = GetComponent<Rigidbody>();
+
+        if (flightCamera == null)
+            flightCamera = Camera.main;
     }
 
     public Vector2 GetSteeringInput()
@@ -69,18 +88,187 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
+        UpdateReticleSteering();
+
         ApplyMovement();
         ApplySteering();
+        ApplyAutoBank();
         ApplyRoll();
+
         BoostLogic();
         ReportSpeed();
+    }
+
+    private void UpdateReticleSteering()
+    {
+        if (flightReticle == null)
+            return;
+
+        if (flightCamera == null)
+            flightCamera = Camera.main;
+
+        if (flightCamera == null)
+            return;
+
+        Canvas parentCanvas = flightReticle.GetComponentInParent<Canvas>();
+
+        float canvasScale = parentCanvas != null
+            ? parentCanvas.scaleFactor
+            : 1f;
+
+        float maxRadius =
+            Screen.height * reticleMovementRadius / canvasScale;
+
+        if (maxRadius <= 0f)
+            return;
+
+        Vector2 reticleOffset = flightReticle.anchoredPosition;
+
+        Vector2 normalisedOffset = reticleOffset / maxRadius;
+
+        normalisedOffset = Vector2.ClampMagnitude(
+            normalisedOffset,
+            1f
+        );
+
+        float angle = maxSteeringAngle * Mathf.Deg2Rad;
+        float angleScale = Mathf.Tan(angle);
+
+        Vector3 desiredDirection =
+            transform.forward
+            + flightCamera.transform.right *
+                (normalisedOffset.x * angleScale)
+            + flightCamera.transform.up *
+                (normalisedOffset.y * angleScale);
+
+        Vector3 localDirection =
+            transform.InverseTransformDirection(
+                desiredDirection.normalized
+            );
+
+        float forwardAmount = Mathf.Max(0.1f, localDirection.z);
+
+        steeringInput.x = Mathf.Clamp(
+            localDirection.x / forwardAmount / angleScale,
+            -1f,
+            1f
+        );
+
+        steeringInput.y = Mathf.Clamp(
+            localDirection.y / forwardAmount / angleScale,
+            -1f,
+            1f
+        );
+    }
+
+    private void ApplyAutoBank()
+    {
+        if (!autoBanking)
+            return;
+
+        // Check whether the player is manually controlling roll.
+        float manualRoll = rollLeftInput - rollRightInput;
+
+        // Give manual roll complete priority.
+        if (Mathf.Abs(manualRoll) > 0.01f)
+            return;
+
+        // Get angular velocity in ship-local space.
+        Vector3 localAngularVelocity =
+            transform.InverseTransformDirection(
+                rigidbody.angularVelocity
+            );
+
+        // Work out the ship's bank relative to its heading.
+        Vector3 levelUp = Vector3.ProjectOnPlane(
+            Vector3.up,
+            transform.forward
+        );
+
+        if (levelUp.sqrMagnitude < 0.001f)
+            return;
+
+        levelUp.Normalize();
+
+        currentBankAngle = Vector3.SignedAngle(
+            levelUp,
+            transform.up,
+            transform.forward
+        );
+
+        // Calculate the desired bank angle from horizontal steering.
+        float targetBankAngle =
+            -steeringInput.x * maxBankAngle;
+
+        // Calculate the error between current and desired bank.
+        float bankError = Mathf.DeltaAngle(
+            currentBankAngle,
+            targetBankAngle
+        );
+
+        // Correct the bank angle while damping unwanted roll velocity.
+        float bankTorque =
+            (bankError * autoBankStrength)
+            - (localAngularVelocity.z * autoBankDamping);
+
+        rigidbody.AddRelativeTorque(
+            Vector3.forward * bankTorque,
+            ForceMode.Acceleration
+        );
+    }
+
+    private void ApplySteering()
+    {
+        Vector3 deltaTorque = Vector3.zero;
+
+        // Pitch: Up and down.
+        deltaTorque.x =
+            -steeringInput.y
+            * pitchSensitivity
+            * pitchStrength;
+
+        // Yaw: Left and right (Y axis).
+        deltaTorque.y =
+            steeringInput.x
+            * yawSensitivity
+            * yawStrength;
+
+        // Apply pitch and yaw independently of Rigidbody mass.
+        rigidbody.AddRelativeTorque(
+            deltaTorque,
+            ForceMode.Acceleration
+        );
+    }
+
+    private void ApplyRoll()
+    {
+        Vector3 deltaRoll = Vector3.zero;
+
+        // Roll: Rotate around the Z axis.
+        deltaRoll.z =
+            (rollLeftInput - rollRightInput)
+            * rollSensitivity
+            * rollStrength;
+
+        rigidbody.AddRelativeTorque(deltaRoll);
+    }
+
+    private void ApplyMovement()
+    {
+        float deltaForce = accelerationInput - brakeInput;
+        deltaForce *= baseSpeed;
+
+        Vector3 deltaVector = transform.forward * deltaForce;
+
+        rigidbody.AddForce(deltaVector);
     }
 
     private void BoostLogic()
     {
         if (isBoosting)
         {
-            currentBoostEnergy -= boostConsumptionRate * Time.fixedDeltaTime;
+            currentBoostEnergy -=
+                boostConsumptionRate * Time.fixedDeltaTime;
 
             Vector3 deltaVector = transform.forward * boostSpeed;
             rigidbody.AddForce(deltaVector);
@@ -93,7 +281,8 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            currentBoostEnergy += boostRegenRate * Time.fixedDeltaTime;
+            currentBoostEnergy +=
+                boostRegenRate * Time.fixedDeltaTime;
 
             currentBoostEnergy = Mathf.Clamp(
                 currentBoostEnergy,
@@ -103,47 +292,6 @@ public class PlayerMovement : MonoBehaviour
         }
 
         OnEnergyChanged?.Invoke(EnergyNormalised);
-    }
-
-    private void ApplyRoll()
-    {
-        Vector3 deltaRoll = Vector3.zero;
-
-        deltaRoll.z =
-            (rollLeftInput - rollRightInput)
-            * rollSensitivity
-            * rollStrength;
-
-        rigidbody.AddRelativeTorque(deltaRoll);
-    }
-
-    private void ApplySteering()
-    {
-        Vector3 deltaTorque = Vector3.zero;
-
-        // Pitch: Up and down
-        deltaTorque.x =
-            -steeringInput.y
-            * pitchSensitivity
-            * pitchStrength;
-
-        // Yaw: Left and right
-        deltaTorque.y =
-            steeringInput.x
-            * yawSensitivity
-            * yawStrength;
-
-        rigidbody.AddRelativeTorque(deltaTorque);
-    }
-
-    private void ApplyMovement()
-    {
-        float deltaForce = accelerationInput - brakeInput;
-        deltaForce *= baseSpeed;
-
-        Vector3 deltaVector = transform.forward * deltaForce;
-
-        rigidbody.AddForce(deltaVector);
     }
 
     private void ReportSpeed()

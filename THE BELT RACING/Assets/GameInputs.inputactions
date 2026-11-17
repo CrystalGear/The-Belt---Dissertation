@@ -216,6 +216,17 @@
                 },
                 {
                     "name": "",
+                    "id": "76f6329c-abaa-4989-93fd-4a16133e6841",
+                    "path": "<Keyboard>/d",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RollRight",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "bc0a1011-d2dd-4c06-957b-87eb03f442f5",
                     "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
@@ -229,6 +240,17 @@
                     "name": "",
                     "id": "50aec720-17ab-4dc9-8131-403c0ec490f7",
                     "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RollLeft",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "26131594-46c7-4084-8038-92f1e44036ff",
+                    "path": "<Keyboard>/a",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
