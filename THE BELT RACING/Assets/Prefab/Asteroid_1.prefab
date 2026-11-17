@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 881629097662498239}
   - component: {fileID: 369081317895924107}
   - component: {fileID: 2548464974984225037}
+  - component: {fileID: -3898679151874571615}
   m_Layer: 0
   m_Name: Asteroid_1
   m_TagString: Untagged
@@ -158,3 +159,20 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 1.2961636
   m_Center: {x: -0.015901376, y: -0.19218847, z: 0.033110045}
+--- !u!114 &-3898679151874571615
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2389292846934385007}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 820468aea92e72140874ad27c8aef5a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Projectile
+  damage: 100
+  projectileSpeed: 0
+  lifetime: 1e+14
+  useHoming: 0
+  turnSpeed: 0
