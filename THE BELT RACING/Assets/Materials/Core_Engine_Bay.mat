@@ -53,7 +53,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Panel_Mask:
-        m_Texture: {fileID: 2800000, guid: df0acbe65da0a97408ce20e12fde2cb9, type: 3}
+        m_Texture: {fileID: 2800000, guid: 37779718bd752344095a6f0a1db2bf24, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Parallax_Occlusion_Map:
@@ -89,7 +89,7 @@ Material:
     - _Lights_Emissive_Intensity: 10
     - _Metalic_Intensity: 0.689
     - _Normal_Intensity: 1
-    - _Panel_Colour_Intensity: 0
+    - _Panel_Colour_Intensity: 0.4
     - _Parallax_Occlusion_Amplitude: 0
     - _Parallax_Occlusion_Layers: 0
     - _QueueControl: 0
@@ -99,9 +99,9 @@ Material:
     - _Text_Colour_Intensity: 0
     m_Colors:
     - _Cable_Mask_Colours: {r: 1, g: 0, b: 0, a: 1}
-    - _Emissive_Mask_Colour: {r: 548.74817, g: 5.012297, b: 18.843908, a: 1}
+    - _Emissive_Mask_Colour: {r: 1, g: 0, b: 0, a: 1}
     - _Large_Pipe_Mask_Colours: {r: 1, g: 0.6844102, b: 0, a: 1}
-    - _Panel_Mask_Colour: {r: 0, g: 0.08203435, b: 1, a: 1}
+    - _Panel_Mask_Colour: {r: 1, g: 0, b: 0, a: 1}
     - _Small_Pipe_Mask_Colours: {r: 0, g: 0.54444736, b: 1, a: 1}
     - _Text_Mask_Colours: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []

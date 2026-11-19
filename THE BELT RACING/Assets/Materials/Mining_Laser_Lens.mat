@@ -99,7 +99,7 @@ Material:
     - _Text_Colour_Intensity: 0
     m_Colors:
     - _Cable_Mask_Colours: {r: 1, g: 0, b: 0, a: 1}
-    - _Emissive_Mask_Colour: {r: 0, g: 8.854835, b: 34.29675, a: 1}
+    - _Emissive_Mask_Colour: {r: 1, g: 0, b: 0, a: 1}
     - _Large_Pipe_Mask_Colours: {r: 1, g: 0.6844102, b: 0, a: 1}
     - _Panel_Mask_Colour: {r: 0.6163521, g: 0.6163521, b: 0.6163521, a: 1}
     - _Small_Pipe_Mask_Colours: {r: 0, g: 0.54444736, b: 1, a: 1}

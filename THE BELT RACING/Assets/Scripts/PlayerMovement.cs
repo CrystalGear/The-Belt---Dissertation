@@ -134,7 +134,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void Start()
     {
-        // Send initial energy value to the UI.
         OnEnergyChanged?.Invoke(currentBoostEnergy);
     }
 
@@ -348,6 +347,7 @@ public class PlayerMovement : MonoBehaviour
         float deltaForce = accelerationInput - brakeInput;
         deltaForce *= baseSpeed;
 
+        // Thrust is always applied in the direction the craft faces.
         Vector3 deltaVector = transform.forward * deltaForce;
 
         rb.AddForce(deltaVector);
@@ -359,7 +359,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void BoostLogic()
     {
-        // BOOSTING
         if (isBoosting && CanUseBoost)
         {
             currentBoostEnergy -=
@@ -369,7 +368,6 @@ public class PlayerMovement : MonoBehaviour
 
             rb.AddForce(deltaVector);
 
-            // Check if energy has been depleted.
             if (currentBoostEnergy <= 0f)
             {
                 currentBoostEnergy = 0f;
@@ -379,10 +377,8 @@ public class PlayerMovement : MonoBehaviour
 
                 boostRechargeTimer = boostRechargeDelay;
 
-                // Apply the sudden forward speed penalty.
                 ApplyOverheatSpeedPenalty();
 
-                // Play the boost overheat sound once.
                 if (boostOverheatAudioSource != null)
                 {
                     boostOverheatAudioSource.Play();
@@ -391,7 +387,6 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            // RECHARGING / COOLING DOWN
             if (currentBoostEnergy < maxBoostEnergy)
             {
                 if (enginesOverheated && boostRechargeTimer > 0f)
@@ -416,7 +411,6 @@ public class PlayerMovement : MonoBehaviour
                 }
             }
 
-            // Engines have fully cooled down and recharged.
             if (enginesOverheated &&
                 currentBoostEnergy >= maxBoostEnergy)
             {
@@ -431,36 +425,27 @@ public class PlayerMovement : MonoBehaviour
         OnEnergyChanged?.Invoke(currentBoostEnergy);
     }
 
-    /// <summary>
-    /// Removes a configurable percentage of the ship's forward velocity
-    /// while preserving its sideways and vertical momentum.
-    /// </summary>
     private void ApplyOverheatSpeedPenalty()
     {
         if (rb == null)
             return;
 
-        // Get the ship's current velocity along its forward direction.
         float currentForwardSpeed = Vector3.Dot(
             rb.linearVelocity,
             transform.forward
         );
 
-        // Do not apply the penalty if the ship is stationary or reversing.
         if (currentForwardSpeed <= 0f)
             return;
 
-        // Calculate the reduced forward speed.
         float reducedSpeed =
             currentForwardSpeed * (1f - overheatSpeedLoss);
 
-        // Enforce the minimum speed without increasing existing speed.
         reducedSpeed = Mathf.Min(
             currentForwardSpeed,
             Mathf.Max(reducedSpeed, minimumSpeedAfterOverheat)
         );
 
-        // Remove only the lost forward velocity.
         float speedDifference =
             currentForwardSpeed - reducedSpeed;
 
@@ -476,8 +461,23 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 velocity = rb.linearVelocity;
 
+        // Total velocity magnitude.
+        float totalSpeed = velocity.magnitude;
+
+        // Velocity along the direction the craft is facing.
+        float forwardSpeed = Vector3.Dot(
+            velocity,
+            transform.forward
+        );
+
+        // Debugging information.
+        Debug.Log(
+            $"Total Speed: {totalSpeed:F2} | " +
+            $"Forward Speed: {forwardSpeed:F2}"
+        );
+
         OnSpeedChanged?.Invoke(
-            (int)velocity.magnitude
+            (int)totalSpeed
         );
     }
 
